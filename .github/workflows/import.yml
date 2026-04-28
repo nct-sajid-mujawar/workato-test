@@ -1,0 +1,43 @@
+name: Notify Collaborators on Import
+
+on:
+  repository_dispatch:
+    types: [import_completed]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: Notify all collaborators via issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: collaborators } = await github.rest.repos.listCollaborators({
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            });
+
+            if (!collaborators.length) {
+              core.info("No collaborators found.");
+              return;
+            }
+
+            // Build mention string
+            const mentions = collaborators
+              .map(c => `@${c.login}`)
+              .join(' ');
+
+            // Create issue with mentions
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: "Import Completed ✅",
+              body: `🚀 Import finished successfully.\n\nNotifying: ${mentions}`
+            });
+
+            core.info(`Issue created: ${issue.data.html_url}`);
